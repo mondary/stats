@@ -598,11 +598,11 @@
 		97B5592A24FD84E000D3C4FF /* tr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = tr; path = tr.lproj/Localizable.strings; sourceTree = "<group>"; };
 		98BF5451254DF04C004E9DF5 /* vi */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = vi; path = vi.lproj/Localizable.strings; sourceTree = "<group>"; };
 		9A00010025CFF9D6001D02B9 /* bg */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = bg; path = bg.lproj/Localizable.strings; sourceTree = "<group>"; };
-		AA11AA110000000000000011 /* LLMModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LLMModule.swift; path = Modules/LLM/LLMModule.swift; sourceTree = SOURCE_ROOT; };
-		AA11AA110000000000000012 /* readers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = readers.swift; path = Modules/LLM/readers.swift; sourceTree = SOURCE_ROOT; };
-		AA11AA110000000000000013 /* popup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = popup.swift; path = Modules/LLM/popup.swift; sourceTree = SOURCE_ROOT; };
-		AA11AA110000000000000014 /* settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = settings.swift; path = Modules/LLM/settings.swift; sourceTree = SOURCE_ROOT; };
-		AA11AA110000000000000015 /* config.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = config.plist; path = Modules/LLM/config.plist; sourceTree = SOURCE_ROOT; };
+		AA11AA110000000000000011 /* LLMModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LLMModule.swift; path = extensions/LLM/LLMModule.swift; sourceTree = SOURCE_ROOT; };
+		AA11AA110000000000000012 /* readers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = readers.swift; path = extensions/LLM/readers.swift; sourceTree = SOURCE_ROOT; };
+		AA11AA110000000000000013 /* popup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = popup.swift; path = extensions/LLM/popup.swift; sourceTree = SOURCE_ROOT; };
+		AA11AA110000000000000014 /* settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = settings.swift; path = extensions/LLM/settings.swift; sourceTree = SOURCE_ROOT; };
+		AA11AA110000000000000015 /* config.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = config.plist; path = extensions/LLM/config.plist; sourceTree = SOURCE_ROOT; };
 		9A045EB62594F8D100ED58F2 /* Dashboard.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Dashboard.swift; sourceTree = "<group>"; };
 		9A11AACF266FD77F000C1C05 /* Bluetooth.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Bluetooth.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		9A11AAD2266FD77F000C1C05 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
