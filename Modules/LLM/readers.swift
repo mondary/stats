@@ -11,6 +11,9 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
     private var customGeminiPath: String {
         Store.shared.string(key: "\(self.title)_geminiPath", defaultValue: "")
     }
+    private var customClaudePath: String {
+        Store.shared.string(key: "\(self.title)_claudePath", defaultValue: "")
+    }
     private var customGLMPath: String {
         Store.shared.string(key: "\(self.title)_glmPath", defaultValue: "")
     }
@@ -25,6 +28,7 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
 
         let roots: [(LLMProvider, [URL])] = [
             (.codex, paths(custom: self.customCodexPath, defaults: ["~/.codex/sessions", "~/.codex/archived_sessions"])),
+            (.claude, paths(custom: self.customClaudePath, defaults: ["~/.claude/projects", "~/.config/claude/projects"])),
             (.gemini, paths(custom: self.customGeminiPath, defaults: ["~/.gemini", "~/.config/gemini"])),
             (.glm, paths(custom: self.customGLMPath, defaults: ["~/.glm", "~/.zai", "~/.config/zai"]))
         ]
@@ -62,6 +66,7 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
             guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
 
             let lower = file.path.lowercased()
+            if provider == .claude && !lower.contains("claude") { continue }
             if provider == .gemini && !lower.contains("gemini") { continue }
             if provider == .glm && !(lower.contains("glm") || lower.contains("zai") || lower.contains("z.ai")) { continue }
 

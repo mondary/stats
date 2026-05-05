@@ -13,6 +13,7 @@ internal class LLMSettings: NSStackView, Settings_v {
 
         self.addArrangedSubview(PreferencesSection([
             PreferencesRow("Codex paths", component: input("\(self.title)_codexPath", placeholder: "~/.codex/sessions:~/.codex/archived_sessions")),
+            PreferencesRow("Claude paths", component: input("\(self.title)_claudePath", placeholder: "~/.claude/projects:~/.config/claude/projects")),
             PreferencesRow("Gemini paths", component: input("\(self.title)_geminiPath", placeholder: "~/.gemini:~/.config/gemini")),
             PreferencesRow("GLM/z.ai paths", component: input("\(self.title)_glmPath", placeholder: "~/.glm:~/.zai:~/.config/zai"))
         ]))

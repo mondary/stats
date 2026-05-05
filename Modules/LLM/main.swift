@@ -3,6 +3,7 @@ import Kit
 
 public enum LLMProvider: String, Codable, CaseIterable {
     case codex = "Codex"
+    case claude = "Claude"
     case gemini = "Gemini"
     case glm = "GLM"
 }
