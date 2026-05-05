@@ -31,7 +31,8 @@ var modules: [Module] = [
     Network(),
     Battery(),
     Bluetooth(),
-    Clock()
+    Clock(),
+    LLM()
 ]
 
 @main
