@@ -25,9 +25,15 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
     private func scan() -> LLMUsageSummary {
         var byProvider: [LLMProvider: LLMUsage] = [:]
         LLMProvider.allCases.forEach { byProvider[$0] = LLMUsage(provider: $0) }
+        var codexPrimaryRemainingPercent: Double? = nil
+        var codexSecondaryRemainingPercent: Double? = nil
+        var codexRateTimestamp: Date = .distantPast
+
+        let codexRoots = paths(custom: self.customCodexPath, defaults: ["~/.codex/sessions", "~/.codex/archived_sessions"])
+        let codexRateSourceFile = mostRecentCodexSessionFile(roots: codexRoots)
 
         let roots: [URL] =
-            paths(custom: self.customCodexPath, defaults: ["~/.codex/sessions", "~/.codex/archived_sessions"]) +
+            codexRoots +
             paths(custom: self.customClaudePath, defaults: ["~/.claude/projects", "~/.config/claude/projects"]) +
             paths(custom: self.customGeminiPath, defaults: ["~/.gemini", "~/.config/gemini"]) +
             paths(custom: self.customGLMPath, defaults: ["~/.glm", "~/.zai", "~/.config/zai"])
@@ -36,12 +42,21 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
             guard let enumerator = fm.enumerator(at: root, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]) else { return }
             for case let file as URL in enumerator {
                 guard file.pathExtension.lowercased() == "jsonl" else { continue }
-                parseFile(file, stats: &byProvider)
+                parseFile(
+                    file,
+                    stats: &byProvider,
+                    codexPrimaryRemainingPercent: &codexPrimaryRemainingPercent,
+                    codexSecondaryRemainingPercent: &codexSecondaryRemainingPercent,
+                    codexRateTimestamp: &codexRateTimestamp,
+                    codexRateSourceFile: codexRateSourceFile
+                )
             }
         }
 
         var summary = LLMUsageSummary()
         summary.providers = LLMProvider.allCases.compactMap { byProvider[$0] }
+        summary.codexPrimaryRemainingPercent = codexPrimaryRemainingPercent
+        summary.codexSecondaryRemainingPercent = codexSecondaryRemainingPercent
         return summary
     }
 
@@ -53,7 +68,14 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
             .filter { fm.fileExists(atPath: $0.path) }
     }
 
-    private func parseFile(_ file: URL, stats: inout [LLMProvider: LLMUsage]) {
+    private func parseFile(
+        _ file: URL,
+        stats: inout [LLMProvider: LLMUsage],
+        codexPrimaryRemainingPercent: inout Double?,
+        codexSecondaryRemainingPercent: inout Double?,
+        codexRateTimestamp: inout Date,
+        codexRateSourceFile: URL?
+    ) {
         guard let handle = try? FileHandle(forReadingFrom: file) else { return }
         defer { try? handle.close() }
 
@@ -76,6 +98,17 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
             row.totalTokens += usage.total > 0 ? usage.total : (usage.input + usage.output)
             row.costUSD += usage.cost
             stats[provider] = row
+
+            if provider == .codex,
+               codexRateSourceFile?.path == file.path,
+               let rates = extractCodexRemaining(from: obj) {
+                let ts = extractTimestamp(from: obj) ?? .distantPast
+                if ts >= codexRateTimestamp {
+                    codexRateTimestamp = ts
+                    codexPrimaryRemainingPercent = rates.primaryRemaining
+                    codexSecondaryRemainingPercent = rates.secondaryRemaining
+                }
+            }
         }
     }
 
@@ -131,6 +164,52 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
         let total = int64(obj["total_tokens"]) ?? (input + output)
         let cost = double(obj["cost_usd"]) ?? double(obj["cost"]) ?? 0
         return (input, output, total, cost)
+    }
+
+    private func extractCodexRemaining(from obj: [String: Any]) -> (primaryRemaining: Double, secondaryRemaining: Double)? {
+        guard
+            let eventType = stringAtPath(obj, ["payload", "type"]),
+            eventType == "token_count",
+            let rate = dictAtPath(obj, ["payload", "rate_limits"]),
+            let primary = rate["primary"] as? [String: Any],
+            let secondary = rate["secondary"] as? [String: Any]
+        else { return nil }
+
+        let primaryUsed = double(primary["used_percent"]) ?? 0
+        let secondaryUsed = double(secondary["used_percent"]) ?? 0
+
+        return (
+            primaryRemaining: max(0, min(100, 100 - primaryUsed)),
+            secondaryRemaining: max(0, min(100, 100 - secondaryUsed))
+        )
+    }
+
+    private func extractTimestamp(from obj: [String: Any]) -> Date? {
+        guard let raw = obj["timestamp"] as? String else { return nil }
+        return ISO8601DateFormatter().date(from: raw)
+    }
+
+    private func mostRecentCodexSessionFile(roots: [URL]) -> URL? {
+        var best: (url: URL, mtime: Date)?
+
+        for root in roots {
+            guard let enumerator = fm.enumerator(
+                at: root,
+                includingPropertiesForKeys: [.isRegularFileKey, .contentModificationDateKey],
+                options: [.skipsHiddenFiles]
+            ) else { continue }
+
+            for case let file as URL in enumerator {
+                guard file.pathExtension.lowercased() == "jsonl" else { continue }
+                let values = try? file.resourceValues(forKeys: [.isRegularFileKey, .contentModificationDateKey])
+                guard values?.isRegularFile == true, let mtime = values?.contentModificationDate else { continue }
+                if best == nil || mtime > best!.mtime {
+                    best = (file, mtime)
+                }
+            }
+        }
+
+        return best?.url
     }
 
     private func dictAtPath(_ root: [String: Any], _ path: [String]) -> [String: Any]? {
