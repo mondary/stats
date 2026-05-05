@@ -209,7 +209,7 @@
 		9AF9EE0F2464875F005D2270 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF9EE0E2464875F005D2270 /* main.swift */; };
 		9AF9EE1124648ADC005D2270 /* readers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF9EE1024648ADC005D2270 /* readers.swift */; };
 		AA00000000000000000000A1 /* libIOReport.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1E45552D11D66200525864 /* libIOReport.tbd */; };
-		AA11AA110000000000000001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11AA110000000000000011 /* main.swift */; };
+		AA11AA110000000000000001 /* LLMModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11AA110000000000000011 /* LLMModule.swift */; };
 		AA11AA110000000000000002 /* readers.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11AA110000000000000012 /* readers.swift */; };
 		AA11AA110000000000000003 /* popup.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11AA110000000000000013 /* popup.swift */; };
 		AA11AA110000000000000004 /* settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11AA110000000000000014 /* settings.swift */; };
@@ -598,7 +598,7 @@
 		97B5592A24FD84E000D3C4FF /* tr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = tr; path = tr.lproj/Localizable.strings; sourceTree = "<group>"; };
 		98BF5451254DF04C004E9DF5 /* vi */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = vi; path = vi.lproj/Localizable.strings; sourceTree = "<group>"; };
 		9A00010025CFF9D6001D02B9 /* bg */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = bg; path = bg.lproj/Localizable.strings; sourceTree = "<group>"; };
-		AA11AA110000000000000011 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = main.swift; path = Modules/LLM/main.swift; sourceTree = SOURCE_ROOT; };
+		AA11AA110000000000000011 /* LLMModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LLMModule.swift; path = Modules/LLM/LLMModule.swift; sourceTree = SOURCE_ROOT; };
 		AA11AA110000000000000012 /* readers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = readers.swift; path = Modules/LLM/readers.swift; sourceTree = SOURCE_ROOT; };
 		AA11AA110000000000000013 /* popup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = popup.swift; path = Modules/LLM/popup.swift; sourceTree = SOURCE_ROOT; };
 		AA11AA110000000000000014 /* settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = settings.swift; path = Modules/LLM/settings.swift; sourceTree = SOURCE_ROOT; };
@@ -1264,7 +1264,7 @@
 		AA11AA110000000000000021 /* LLM */ = {
 			isa = PBXGroup;
 			children = (
-				AA11AA110000000000000011 /* main.swift */,
+				AA11AA110000000000000011 /* LLMModule.swift */,
 				AA11AA110000000000000012 /* readers.swift */,
 				AA11AA110000000000000013 /* popup.swift */,
 				AA11AA110000000000000014 /* settings.swift */,
@@ -2107,7 +2107,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9AABEB7A243FD26200668CB0 /* AppDelegate.swift in Sources */,
-				AA11AA110000000000000001 /* main.swift in Sources */,
+				AA11AA110000000000000001 /* LLMModule.swift in Sources */,
 				AA11AA110000000000000002 /* readers.swift in Sources */,
 				AA11AA110000000000000003 /* popup.swift in Sources */,
 				AA11AA110000000000000004 /* settings.swift in Sources */,
