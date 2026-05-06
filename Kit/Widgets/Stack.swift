@@ -35,6 +35,7 @@ public class StackWidget: WidgetWrapper {
     private var alignmentState: String = "left"
     
     private var values: [Stack_t] = []
+    private static var iconCache: [String: NSImage] = [:]
     
     private var oneRowWidth: CGFloat = 45
     private var twoRowWidth: CGFloat = 32
@@ -165,18 +166,26 @@ public class StackWidget: WidgetWrapper {
         let style = NSMutableParagraphStyle()
         style.alignment = alignment
         
+        let (icon, textValue) = self.parseIcon(from: element.value)
         var width: CGFloat = self.oneRowWidth
         if !fixedSizeState {
-            width = element.value.widthOfString(usingFont: font).rounded(.up) + 2
+            let iconWidth: CGFloat = icon == nil ? 0 : 10
+            let iconSpacing: CGFloat = icon == nil ? 0 : 2
+            width = (textValue.widthOfString(usingFont: font) + iconWidth + iconSpacing).rounded(.up) + 2
         }
-        
+
+        if let icon {
+            let iconRect = CGRect(x: x, y: ((Constants.Widget.height-10)/2), width: 10, height: 10)
+            icon.draw(in: iconRect)
+        }
+        let iconOffset: CGFloat = icon == nil ? 0 : 12
         let rect = CGRect(x: x, y: (Constants.Widget.height-13)/2, width: width, height: 13)
-        let str = NSAttributedString.init(string: element.value, attributes: [
+        let str = NSAttributedString.init(string: textValue, attributes: [
             NSAttributedString.Key.font: font,
             NSAttributedString.Key.foregroundColor: NSColor.textColor,
             NSAttributedString.Key.paragraphStyle: style
         ])
-        str.draw(with: rect)
+        str.draw(with: CGRect(x: rect.origin.x + iconOffset, y: rect.origin.y, width: rect.width - iconOffset, height: rect.height))
         
         return width
     }
@@ -201,6 +210,8 @@ public class StackWidget: WidgetWrapper {
         let style = NSMutableParagraphStyle()
         style.alignment = alignment
         
+        let (topIcon, topTextValue) = self.parseIcon(from: topElement.value)
+        let (bottomIcon, bottomTextValue) = self.parseIcon(from: bottomElement?.value ?? "")
         let attributes = [
             NSAttributedString.Key.font: font,
             NSAttributedString.Key.foregroundColor: NSColor.textColor,
@@ -209,19 +220,35 @@ public class StackWidget: WidgetWrapper {
         
         var width: CGFloat = self.twoRowWidth
         if !fixedSizeState {
-            let firstRowWidth = topElement.value.widthOfString(usingFont: font)
-            let secondRowWidth = bottomElement?.value.widthOfString(usingFont: font) ?? 0
+            let iconWidth: CGFloat = topIcon == nil ? 0 : 10
+            let iconSpacing: CGFloat = topIcon == nil ? 0 : 2
+            let firstRowWidth = topTextValue.widthOfString(usingFont: font) + iconWidth + iconSpacing
+            let bottomIconWidth: CGFloat = bottomIcon == nil ? 0 : 10
+            let bottomIconSpacing: CGFloat = bottomIcon == nil ? 0 : 2
+            let secondRowWidth = bottomTextValue.widthOfString(usingFont: font) + bottomIconWidth + bottomIconSpacing
             width = max(20, max(firstRowWidth, secondRowWidth)).rounded(.up) + 2
         }
-        
+
+        let sharedIcon = topIcon != nil && bottomIcon == nil && bottomElement != nil
+        if let topIcon {
+            let iconY = sharedIcon ? ((self.frame.height - 10) / 2) : rowHeight + ((rowHeight-10)/2)
+            let iconRect = CGRect(x: x, y: iconY, width: 10, height: 10)
+            topIcon.draw(in: iconRect)
+        }
+        let topIconOffset: CGFloat = topIcon == nil ? 0 : 12
         var rect = CGRect(x: x, y: rowHeight+1, width: width, height: rowHeight)
-        var str = NSAttributedString.init(string: topElement.value, attributes: attributes)
-        str.draw(with: rect)
+        var str = NSAttributedString.init(string: topTextValue, attributes: attributes)
+        str.draw(with: CGRect(x: rect.origin.x + topIconOffset, y: rect.origin.y, width: rect.width - topIconOffset, height: rect.height))
         
         if bottomElement != nil {
+            if let bottomIcon {
+                let bottomIconRect = CGRect(x: x, y: ((rowHeight-10)/2), width: 10, height: 10)
+                bottomIcon.draw(in: bottomIconRect)
+            }
+            let bottomIconOffset: CGFloat = bottomIcon == nil ? (sharedIcon ? 12 : 0) : 12
             rect = CGRect(x: x, y: 1, width: width, height: rowHeight)
-            str = NSAttributedString.init(string: bottomElement!.value, attributes: attributes)
-            str.draw(with: rect)
+            str = NSAttributedString.init(string: bottomTextValue, attributes: attributes)
+            str.draw(with: CGRect(x: rect.origin.x + bottomIconOffset, y: rect.origin.y, width: rect.width - bottomIconOffset, height: rect.height))
         }
         
         return width
@@ -251,6 +278,25 @@ public class StackWidget: WidgetWrapper {
             }
             self.display()
         })
+    }
+
+    private func parseIcon(from raw: String) -> (NSImage?, String) {
+        guard raw.hasPrefix("[[icon:") else { return (nil, raw) }
+        guard let end = raw.range(of: "]]") else { return (nil, raw) }
+
+        let token = String(raw[raw.index(raw.startIndex, offsetBy: 7)..<end.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = String(raw[end.upperBound...]).trimmingCharacters(in: .whitespaces)
+        guard !token.isEmpty else { return (nil, text) }
+
+        if let cached = Self.iconCache[token] {
+            return (cached, text)
+        }
+        guard let url = Bundle.main.url(forResource: token, withExtension: "png"),
+              let image = NSImage(contentsOf: url) else {
+            return (nil, text)
+        }
+        Self.iconCache[token] = image
+        return (image, text)
     }
     
     // MARK: - Settings

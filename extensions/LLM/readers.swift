@@ -25,12 +25,13 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
     private func scan() -> LLMUsageSummary {
         var byProvider: [LLMProvider: LLMUsage] = [:]
         LLMProvider.allCases.forEach { byProvider[$0] = LLMUsage(provider: $0) }
-        var codexPrimaryRemainingPercent: Double? = nil
-        var codexSecondaryRemainingPercent: Double? = nil
         var codexRateTimestamp: Date = .distantPast
 
         let codexRoots = paths(custom: self.customCodexPath, defaults: ["~/.codex/sessions", "~/.codex/archived_sessions"])
         let codexRateSourceFile = mostRecentCodexSessionFile(roots: codexRoots)
+        let codexRPCQuota = fetchCodexRPCQuota()
+        let geminiQuota = fetchGeminiQuota()
+        let zaiQuota = fetchZaiQuota()
 
         let roots: [URL] =
             codexRoots +
@@ -45,18 +46,33 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
                 parseFile(
                     file,
                     stats: &byProvider,
-                    codexPrimaryRemainingPercent: &codexPrimaryRemainingPercent,
-                    codexSecondaryRemainingPercent: &codexSecondaryRemainingPercent,
                     codexRateTimestamp: &codexRateTimestamp,
                     codexRateSourceFile: codexRateSourceFile
                 )
             }
         }
 
+        if let codexRPCQuota {
+            var codex = byProvider[.codex] ?? LLMUsage(provider: .codex)
+            codex.dailyRemainingPercent = codexRPCQuota.primaryRemaining
+            codex.weeklyRemainingPercent = codexRPCQuota.secondaryRemaining
+            byProvider[.codex] = codex
+        }
+        if let geminiQuota {
+            var gemini = byProvider[.gemini] ?? LLMUsage(provider: .gemini)
+            gemini.dailyRemainingPercent = geminiQuota.primaryRemaining
+            gemini.weeklyRemainingPercent = geminiQuota.secondaryRemaining
+            byProvider[.gemini] = gemini
+        }
+        if let zaiQuota {
+            var glm = byProvider[.glm] ?? LLMUsage(provider: .glm)
+            glm.dailyRemainingPercent = zaiQuota.primaryRemaining
+            glm.weeklyRemainingPercent = zaiQuota.secondaryRemaining
+            byProvider[.glm] = glm
+        }
+
         var summary = LLMUsageSummary()
         summary.providers = LLMProvider.allCases.compactMap { byProvider[$0] }
-        summary.codexPrimaryRemainingPercent = codexPrimaryRemainingPercent
-        summary.codexSecondaryRemainingPercent = codexSecondaryRemainingPercent
         return summary
     }
 
@@ -71,8 +87,6 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
     private func parseFile(
         _ file: URL,
         stats: inout [LLMProvider: LLMUsage],
-        codexPrimaryRemainingPercent: inout Double?,
-        codexSecondaryRemainingPercent: inout Double?,
         codexRateTimestamp: inout Date,
         codexRateSourceFile: URL?
     ) {
@@ -105,8 +119,10 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
                 let ts = extractTimestamp(from: obj) ?? .distantPast
                 if ts >= codexRateTimestamp {
                     codexRateTimestamp = ts
-                    codexPrimaryRemainingPercent = rates.primaryRemaining
-                    codexSecondaryRemainingPercent = rates.secondaryRemaining
+                    var codex = stats[.codex] ?? LLMUsage(provider: .codex)
+                    codex.dailyRemainingPercent = rates.primaryRemaining
+                    codex.weeklyRemainingPercent = rates.secondaryRemaining
+                    stats[.codex] = codex
                 }
             }
         }
@@ -212,6 +228,209 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
         return best?.url
     }
 
+    private func fetchCodexRPCQuota() -> (primaryRemaining: Double?, secondaryRemaining: Double?)? {
+        let process = Process()
+        let stdinPipe = Pipe()
+        let stdoutPipe = Pipe()
+        let stderrPipe = Pipe()
+
+        var env = ProcessInfo.processInfo.environment
+        let currentPath = env["PATH"] ?? ""
+        env["PATH"] = [
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            "/usr/bin",
+            "/bin",
+            "/usr/sbin",
+            "/sbin",
+            currentPath,
+        ].joined(separator: ":")
+
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["codex", "-s", "read-only", "-a", "untrusted", "app-server"]
+        process.environment = env
+        process.standardInput = stdinPipe
+        process.standardOutput = stdoutPipe
+        process.standardError = stderrPipe
+
+        do {
+            try process.run()
+        } catch {
+            return nil
+        }
+
+        let messages = [
+            #"{"id":1,"method":"initialize","params":{"clientInfo":{"name":"stats-llm","version":"0.1"}}}"#,
+            #"{"method":"initialized","params":{}}"#,
+            #"{"id":2,"method":"account/rateLimits/read","params":{}}"#,
+        ].joined(separator: "\n") + "\n"
+
+        if let data = messages.data(using: .utf8) {
+            stdinPipe.fileHandleForWriting.write(data)
+        }
+        try? stdinPipe.fileHandleForWriting.close()
+
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 5) {
+            if process.isRunning {
+                process.terminate()
+            }
+        }
+        let output = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard let text = String(data: output, encoding: .utf8) else { return nil }
+
+        for line in text.split(separator: "\n").reversed() {
+            guard
+                let data = String(line).data(using: .utf8),
+                let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let id = obj["id"] as? Int,
+                id == 2,
+                let result = obj["result"] as? [String: Any],
+                let rateLimits = result["rateLimits"] as? [String: Any]
+            else { continue }
+
+            let primary = rateLimits["primary"] as? [String: Any]
+            let secondary = rateLimits["secondary"] as? [String: Any]
+            return (
+                primaryRemaining: remainingPercent(from: primary),
+                secondaryRemaining: remainingPercent(from: secondary)
+            )
+        }
+
+        return nil
+    }
+
+    private func remainingPercent(from window: [String: Any]?) -> Double? {
+        guard let used = double(window?["usedPercent"]) else { return nil }
+        return max(0, min(100, 100 - used))
+    }
+
+    private func fetchGeminiQuota() -> (primaryRemaining: Double?, secondaryRemaining: Double?)? {
+        let credsURL = fm.homeDirectoryForCurrentUser
+            .appendingPathComponent(".gemini", isDirectory: true)
+            .appendingPathComponent("oauth_creds.json")
+        guard
+            let data = try? Data(contentsOf: credsURL),
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let token = json["access_token"] as? String,
+            !token.isEmpty
+        else { return nil }
+
+        guard
+            let response = requestJSON(
+                url: URL(string: "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota")!,
+                method: "POST",
+                headers: [
+                    "Authorization": "Bearer \(token)",
+                    "Content-Type": "application/json",
+                ],
+                body: Data("{}".utf8)
+            ),
+            let buckets = response["buckets"] as? [[String: Any]]
+        else { return nil }
+
+        func remaining(for marker: String) -> Double? {
+            let matches = buckets.filter {
+                (($0["modelId"] as? String)?.lowercased().contains(marker) ?? false) &&
+                (($0["tokenType"] as? String)?.uppercased() == "REQUESTS")
+            }
+            let values = matches.compactMap { bucket -> Double? in
+                if let fraction = double(bucket["remainingFraction"]) {
+                    return max(0, min(100, fraction * 100))
+                }
+                if let percent = double(bucket["percentLeft"]) ?? double(bucket["remainingPercent"]) {
+                    return max(0, min(100, percent))
+                }
+                return nil
+            }
+            return values.min()
+        }
+
+        return (
+            primaryRemaining: remaining(for: "pro") ?? buckets.compactMap { double($0["remainingFraction"]).map { $0 * 100 } }.min(),
+            secondaryRemaining: remaining(for: "flash")
+        )
+    }
+
+    private func fetchZaiQuota() -> (primaryRemaining: Double?, secondaryRemaining: Double?)? {
+        guard let token = zaiToken() else { return nil }
+        guard
+            let response = requestJSON(
+                url: URL(string: "https://api.z.ai/api/monitor/usage/quota/limit")!,
+                method: "GET",
+                headers: [
+                    "authorization": "Bearer \(token)",
+                    "accept": "application/json",
+                ],
+                body: nil
+            ),
+            ((response["success"] as? Bool) == true || (response["code"] as? Int) == 200),
+            let data = response["data"] as? [String: Any],
+            let limits = data["limits"] as? [[String: Any]]
+        else { return nil }
+
+        let tokenLimits = limits
+            .filter { ($0["type"] as? String) == "TOKENS_LIMIT" }
+            .sorted { (int($0["number"]) ?? Int.max) < (int($1["number"]) ?? Int.max) }
+        let timeLimit = limits.first { ($0["type"] as? String) == "TIME_LIMIT" }
+
+        return (
+            primaryRemaining: zaiRemaining(from: tokenLimits.first ?? timeLimit),
+            secondaryRemaining: zaiRemaining(from: timeLimit ?? tokenLimits.last)
+        )
+    }
+
+    private func zaiToken() -> String? {
+        let env = ProcessInfo.processInfo.environment
+        if let token = env["Z_AI_API_KEY"]?.trimmingCharacters(in: .whitespacesAndNewlines), !token.isEmpty {
+            return token
+        }
+        let glmConfig = fm.homeDirectoryForCurrentUser
+            .appendingPathComponent(".glm", isDirectory: true)
+            .appendingPathComponent("config.json")
+        guard
+            let data = try? Data(contentsOf: glmConfig),
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let token = json["anthropic_auth_token"] as? String
+        else { return nil }
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func zaiRemaining(from limit: [String: Any]?) -> Double? {
+        guard let limit else { return nil }
+        if let usage = int(limit["usage"]), usage > 0, let remaining = int(limit["remaining"]) {
+            return max(0, min(100, (Double(remaining) / Double(usage)) * 100))
+        }
+        if let used = double(limit["percentage"]) {
+            return max(0, min(100, 100 - used))
+        }
+        return nil
+    }
+
+    private func requestJSON(url: URL, method: String, headers: [String: String], body: Data?) -> [String: Any]? {
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.timeoutInterval = 8
+        headers.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
+        request.httpBody = body
+
+        let semaphore = DispatchSemaphore(value: 0)
+        var result: [String: Any]?
+        URLSession.shared.dataTask(with: request) { data, response, _ in
+            defer { semaphore.signal() }
+            guard
+                let http = response as? HTTPURLResponse,
+                (200...299).contains(http.statusCode),
+                let data,
+                let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            else { return }
+            result = obj
+        }.resume()
+        _ = semaphore.wait(timeout: .now() + 8)
+        return result
+    }
+
     private func dictAtPath(_ root: [String: Any], _ path: [String]) -> [String: Any]? {
         var current: Any = root
         for key in path {
@@ -235,6 +454,13 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
         if let i = value as? Int { return Int64(i) }
         if let d = value as? Double { return Int64(d) }
         if let s = value as? String, let i = Int64(s) { return i }
+        return nil
+    }
+
+    private func int(_ value: Any?) -> Int? {
+        if let i = value as? Int { return i }
+        if let d = value as? Double { return Int(d) }
+        if let s = value as? String, let i = Int(s) { return i }
         return nil
     }
 

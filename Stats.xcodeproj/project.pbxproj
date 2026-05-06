@@ -214,6 +214,10 @@
 		AA11AA110000000000000003 /* popup.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11AA110000000000000013 /* popup.swift */; };
 		AA11AA110000000000000004 /* settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11AA110000000000000014 /* settings.swift */; };
 		AA11AA110000000000000005 /* config.plist in Resources */ = {isa = PBXBuildFile; fileRef = AA11AA110000000000000015 /* config.plist */; };
+		AA11AA110000000000000006 /* codexbar-codex.png in Resources */ = {isa = PBXBuildFile; fileRef = AA11AA110000000000000016 /* codexbar-codex.png */; };
+		AA11AA110000000000000007 /* codexbar-claude.png in Resources */ = {isa = PBXBuildFile; fileRef = AA11AA110000000000000017 /* codexbar-claude.png */; };
+		AA11AA110000000000000008 /* codexbar-gemini.png in Resources */ = {isa = PBXBuildFile; fileRef = AA11AA110000000000000018 /* codexbar-gemini.png */; };
+		AA11AA110000000000000009 /* codexbar-zai.png in Resources */ = {isa = PBXBuildFile; fileRef = AA11AA110000000000000019 /* codexbar-zai.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -603,6 +607,10 @@
 		AA11AA110000000000000013 /* popup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = popup.swift; path = extensions/LLM/popup.swift; sourceTree = SOURCE_ROOT; };
 		AA11AA110000000000000014 /* settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = settings.swift; path = extensions/LLM/settings.swift; sourceTree = SOURCE_ROOT; };
 		AA11AA110000000000000015 /* config.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = config.plist; path = extensions/LLM/config.plist; sourceTree = SOURCE_ROOT; };
+		AA11AA110000000000000016 /* codexbar-codex.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "codexbar-codex.png"; path = "extensions/LLM/codexbar-codex.png"; sourceTree = SOURCE_ROOT; };
+		AA11AA110000000000000017 /* codexbar-claude.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "codexbar-claude.png"; path = "extensions/LLM/codexbar-claude.png"; sourceTree = SOURCE_ROOT; };
+		AA11AA110000000000000018 /* codexbar-gemini.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "codexbar-gemini.png"; path = "extensions/LLM/codexbar-gemini.png"; sourceTree = SOURCE_ROOT; };
+		AA11AA110000000000000019 /* codexbar-zai.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "codexbar-zai.png"; path = "extensions/LLM/codexbar-zai.png"; sourceTree = SOURCE_ROOT; };
 		9A045EB62594F8D100ED58F2 /* Dashboard.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Dashboard.swift; sourceTree = "<group>"; };
 		9A11AACF266FD77F000C1C05 /* Bluetooth.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Bluetooth.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		9A11AAD2266FD77F000C1C05 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -1269,6 +1277,10 @@
 				AA11AA110000000000000013 /* popup.swift */,
 				AA11AA110000000000000014 /* settings.swift */,
 				AA11AA110000000000000015 /* config.plist */,
+				AA11AA110000000000000016 /* codexbar-codex.png */,
+				AA11AA110000000000000017 /* codexbar-claude.png */,
+				AA11AA110000000000000018 /* codexbar-gemini.png */,
+				AA11AA110000000000000019 /* codexbar-zai.png */,
 			);
 			path = LLM;
 			sourceTree = "<group>";
@@ -1929,6 +1941,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA11AA110000000000000005 /* config.plist in Resources */,
+				AA11AA110000000000000006 /* codexbar-codex.png in Resources */,
+				AA11AA110000000000000007 /* codexbar-claude.png in Resources */,
+				AA11AA110000000000000008 /* codexbar-gemini.png in Resources */,
+				AA11AA110000000000000009 /* codexbar-zai.png in Resources */,
 				9A6CFC0122A1C9F5001E782D /* Assets.xcassets in Resources */,
 				9A9B25BB24F7DE2B00C3CCE6 /* Localizable.strings in Resources */,
 			);
