@@ -391,28 +391,31 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
             let buckets = response["buckets"] as? [[String: Any]]
         else { return nil }
 
-        func remaining(for marker: String) -> Double? {
+        let iso = ISO8601DateFormatter()
+
+        func bestRemaining(for marker: String) -> (remaining: Double, resetsAt: Date?)? {
             let matches = buckets.filter {
                 (($0["modelId"] as? String)?.lowercased().contains(marker) ?? false) &&
                 (($0["tokenType"] as? String)?.uppercased() == "REQUESTS")
             }
-            let values = matches.compactMap { bucket -> Double? in
+            let values = matches.compactMap { bucket -> (Double, Date?)? in
+                let reset = (bucket["resetTime"] as? String).flatMap { iso.date(from: $0) }
                 if let fraction = double(bucket["remainingFraction"]) {
-                    return max(0, min(100, fraction * 100))
+                    return (max(0, min(100, fraction * 100)), reset)
                 }
                 if let percent = double(bucket["percentLeft"]) ?? double(bucket["remainingPercent"]) {
-                    return max(0, min(100, percent))
+                    return (max(0, min(100, percent)), reset)
                 }
                 return nil
             }
-            return values.min()
+            return values.min { $0.0 < $1.0 }
         }
 
         return (
-            primaryRemaining: remaining(for: "pro") ?? buckets.compactMap { double($0["remainingFraction"]).map { $0 * 100 } }.min(),
-            secondaryRemaining: remaining(for: "flash"),
-            primaryResetsAt: nil, // Gemini API doesn't provide reset time
-            secondaryResetsAt: nil
+            primaryRemaining: bestRemaining(for: "pro")?.remaining,
+            secondaryRemaining: bestRemaining(for: "flash")?.remaining,
+            primaryResetsAt: bestRemaining(for: "pro")?.resetsAt,
+            secondaryResetsAt: bestRemaining(for: "flash")?.resetsAt
         )
     }
 
@@ -446,8 +449,8 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
         return (
             primaryRemaining: zaiRemaining(from: tokenLimits.first ?? timeLimit),
             secondaryRemaining: zaiRemaining(from: timeLimit ?? tokenLimits.last),
-            primaryResetsAt: nil, // Z.ai API doesn't provide reset time
-            secondaryResetsAt: nil
+            primaryResetsAt: zaiResetsAt(from: tokenLimits.first ?? timeLimit),
+            secondaryResetsAt: zaiResetsAt(from: timeLimit ?? tokenLimits.last)
         )
     }
 
@@ -477,6 +480,18 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
             return max(0, min(100, 100 - used))
         }
         return nil
+    }
+
+    private func zaiResetsAt(from limit: [String: Any]?) -> Date? {
+        guard let limit else { return nil }
+        let raw = double(limit["nextResetTime"]) ??
+            double(limit["next_reset_time"]) ??
+            double(limit["resetTime"]) ??
+            double(limit["resetsAt"]) ??
+            double(limit["resets_at"])
+        guard let raw else { return nil }
+        let seconds = raw > 1_000_000_000_000 ? raw / 1000.0 : raw
+        return Date(timeIntervalSince1970: seconds)
     }
 
     private func requestJSON(url: URL, method: String, headers: [String: String], body: Data?) -> [String: Any]? {
