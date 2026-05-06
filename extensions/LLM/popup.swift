@@ -84,6 +84,9 @@ internal class LLMPopup: PopupWrapper {
         row.orientation = .horizontal
         row.distribution = .fill
         row.alignment = .centerY
+        row.translatesAutoresizingMaskIntoConstraints = false
+        row.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        row.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         if showLogos, let image = iconImage(for: usage.provider) {
             let iv = NSImageView(image: image)
@@ -99,6 +102,12 @@ internal class LLMPopup: PopupWrapper {
         title.lineBreakMode = .byTruncatingTail
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         row.addArrangedSubview(title)
+
+        // Force header to expand to full width
+        let spacer = NSView()
+        spacer.translatesAutoresizingMaskIntoConstraints = false
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        row.addArrangedSubview(spacer)
         return row
     }
 
@@ -176,11 +185,20 @@ internal class LLMPopup: PopupWrapper {
         stack.alignment = .width
         stack.distribution = .fill
         stack.spacing = 5
-        stack.widthAnchor.constraint(equalToConstant: Constants.Popup.width - 16).isActive = true
 
-        stack.addArrangedSubview(providerHeader(usage, showLogos: showLogos))
-        stack.addArrangedSubview(gauge("Daily", percent: usage.dailyRemainingPercent, resetsAt: usage.dailyResetsAt))
-        stack.addArrangedSubview(gauge("Weekly", percent: usage.weeklyRemainingPercent, resetsAt: usage.weeklyResetsAt))
+        let header = providerHeader(usage, showLogos: showLogos)
+        let dailyGauge = gauge("Daily", percent: usage.dailyRemainingPercent, resetsAt: usage.dailyResetsAt)
+        let weeklyGauge = gauge("Weekly", percent: usage.weeklyRemainingPercent, resetsAt: usage.weeklyResetsAt)
+
+        stack.addArrangedSubview(header)
+        stack.addArrangedSubview(dailyGauge)
+        stack.addArrangedSubview(weeklyGauge)
+
+        // Force all subviews to full width
+        header.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        dailyGauge.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        weeklyGauge.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+
         return stack
     }
 

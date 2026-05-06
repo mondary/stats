@@ -64,12 +64,16 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
             var gemini = byProvider[.gemini] ?? LLMUsage(provider: .gemini)
             gemini.dailyRemainingPercent = geminiQuota.primaryRemaining
             gemini.weeklyRemainingPercent = geminiQuota.secondaryRemaining
+            gemini.dailyResetsAt = geminiQuota.primaryResetsAt
+            gemini.weeklyResetsAt = geminiQuota.secondaryResetsAt
             byProvider[.gemini] = gemini
         }
         if let zaiQuota {
             var glm = byProvider[.glm] ?? LLMUsage(provider: .glm)
             glm.dailyRemainingPercent = zaiQuota.primaryRemaining
             glm.weeklyRemainingPercent = zaiQuota.secondaryRemaining
+            glm.dailyResetsAt = zaiQuota.primaryResetsAt
+            glm.weeklyResetsAt = zaiQuota.secondaryResetsAt
             byProvider[.glm] = glm
         }
 
@@ -358,7 +362,12 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
         return nil
     }
 
-    private func fetchGeminiQuota() -> (primaryRemaining: Double?, secondaryRemaining: Double?)? {
+    private func fetchGeminiQuota() -> (
+        primaryRemaining: Double?,
+        secondaryRemaining: Double?,
+        primaryResetsAt: Date?,
+        secondaryResetsAt: Date?
+    )? {
         let credsURL = fm.homeDirectoryForCurrentUser
             .appendingPathComponent(".gemini", isDirectory: true)
             .appendingPathComponent("oauth_creds.json")
@@ -401,11 +410,18 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
 
         return (
             primaryRemaining: remaining(for: "pro") ?? buckets.compactMap { double($0["remainingFraction"]).map { $0 * 100 } }.min(),
-            secondaryRemaining: remaining(for: "flash")
+            secondaryRemaining: remaining(for: "flash"),
+            primaryResetsAt: nil, // Gemini API doesn't provide reset time
+            secondaryResetsAt: nil
         )
     }
 
-    private func fetchZaiQuota() -> (primaryRemaining: Double?, secondaryRemaining: Double?)? {
+    private func fetchZaiQuota() -> (
+        primaryRemaining: Double?,
+        secondaryRemaining: Double?,
+        primaryResetsAt: Date?,
+        secondaryResetsAt: Date?
+    )? {
         guard let token = zaiToken() else { return nil }
         guard
             let response = requestJSON(
@@ -429,7 +445,9 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
 
         return (
             primaryRemaining: zaiRemaining(from: tokenLimits.first ?? timeLimit),
-            secondaryRemaining: zaiRemaining(from: timeLimit ?? tokenLimits.last)
+            secondaryRemaining: zaiRemaining(from: timeLimit ?? tokenLimits.last),
+            primaryResetsAt: nil, // Z.ai API doesn't provide reset time
+            secondaryResetsAt: nil
         )
     }
 
