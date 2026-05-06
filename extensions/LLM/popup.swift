@@ -113,6 +113,7 @@ internal class LLMPopup: PopupWrapper {
 
     private func gauge(_ title: String, percent: Double, resetsAt: Date?) -> NSView {
         let container = NSStackView()
+        container.translatesAutoresizingMaskIntoConstraints = false
         container.orientation = .vertical
         container.alignment = .width
         container.spacing = 4
@@ -169,12 +170,20 @@ internal class LLMPopup: PopupWrapper {
             note.lineBreakMode = .byTruncatingTail
             note.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             container.addArrangedSubview(note)
-            note.widthAnchor.constraint(equalTo: container.widthAnchor).isActive = true
+            note.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                note.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                note.trailingAnchor.constraint(equalTo: container.trailingAnchor)
+            ])
         }
 
-        // Ensure arranged subviews span full width (otherwise NSStackView may size them to intrinsic width).
-        header.widthAnchor.constraint(equalTo: container.widthAnchor).isActive = true
-        barContainer.widthAnchor.constraint(equalTo: container.widthAnchor).isActive = true
+        // Force full-width layout for gauge content.
+        NSLayoutConstraint.activate([
+            header.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            header.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            barContainer.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            barContainer.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+        ])
         return container
     }
 
@@ -185,19 +194,26 @@ internal class LLMPopup: PopupWrapper {
         stack.alignment = .width
         stack.distribution = .fill
         stack.spacing = 5
+        // Fix width to popup width minus margins
+        stack.widthAnchor.constraint(equalToConstant: Constants.Popup.width - 16).isActive = true
 
         let header = providerHeader(usage, showLogos: showLogos)
-        let dailyGauge = gauge("Daily", percent: usage.dailyRemainingPercent, resetsAt: usage.dailyResetsAt)
-        let weeklyGauge = gauge("Weekly", percent: usage.weeklyRemainingPercent, resetsAt: usage.weeklyResetsAt)
+        let daily = gauge("Daily", percent: usage.dailyRemainingPercent, resetsAt: usage.dailyResetsAt)
+        let weekly = gauge("Weekly", percent: usage.weeklyRemainingPercent, resetsAt: usage.weeklyResetsAt)
 
         stack.addArrangedSubview(header)
-        stack.addArrangedSubview(dailyGauge)
-        stack.addArrangedSubview(weeklyGauge)
+        stack.addArrangedSubview(daily)
+        stack.addArrangedSubview(weekly)
 
-        // Force all subviews to full width
-        header.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-        dailyGauge.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-        weeklyGauge.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        // Make each block span full width; otherwise AppKit may center it to intrinsic width.
+        NSLayoutConstraint.activate([
+            header.leadingAnchor.constraint(equalTo: stack.leadingAnchor),
+            header.trailingAnchor.constraint(equalTo: stack.trailingAnchor),
+            daily.leadingAnchor.constraint(equalTo: stack.leadingAnchor),
+            daily.trailingAnchor.constraint(equalTo: stack.trailingAnchor),
+            weekly.leadingAnchor.constraint(equalTo: stack.leadingAnchor),
+            weekly.trailingAnchor.constraint(equalTo: stack.trailingAnchor),
+        ])
 
         return stack
     }
