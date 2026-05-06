@@ -61,17 +61,18 @@ public class TextWidget: WidgetWrapper {
             with: CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading]
         )
-        let iconWidth: CGFloat = icon == nil ? 0 : 12
-        let iconSpacing: CGFloat = icon == nil ? 0 : 3
+        let iconSize: CGFloat = min(18, Constants.Widget.height - 4)
+        let iconWidth: CGFloat = icon == nil ? 0 : iconSize
+        let iconSpacing: CGFloat = icon == nil ? 0 : 4
         let contentWidth = size.width + iconWidth + iconSpacing
         let width = (contentWidth+Constants.Widget.margin.x*2).roundedUpToNearestTen()
         let origin: CGPoint = CGPoint(x: Constants.Widget.margin.x, y: ((Constants.Widget.height-valueSize-1)/2))
         if let icon {
             let iconRect = CGRect(
                 x: origin.x,
-                y: ((Constants.Widget.height-12)/2),
-                width: 12,
-                height: 12
+                y: ((Constants.Widget.height-iconSize)/2),
+                width: iconSize,
+                height: iconSize
             )
             icon.draw(in: iconRect)
         }
@@ -125,14 +126,21 @@ public class TextWidget: WidgetWrapper {
         let text = String(raw[end.upperBound...]).trimmingCharacters(in: .whitespaces)
         guard !token.isEmpty else { return (nil, text) }
 
-        if let cached = Self.iconCache[token] {
+        let prefersLightIcon = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua
+        let cacheKey = "\(token)|\(prefersLightIcon ? "lightIcon" : "defaultIcon")"
+        if let cached = Self.iconCache[cacheKey] {
             return (cached, text)
         }
-        guard let url = Bundle.main.url(forResource: token, withExtension: "png"),
-              let image = NSImage(contentsOf: url) else {
-            return (nil, text)
-        }
-        Self.iconCache[token] = image
+        let names: [String] = prefersLightIcon ? ["\(token)-dark", token] : [token, "\(token)-dark"]
+        let exts: [String] = ["png", "svg"]
+        let image: NSImage? = names.lazy.flatMap { name in
+            exts.lazy.compactMap { ext in
+                guard let url = Bundle.main.url(forResource: name, withExtension: ext) else { return nil }
+                return NSImage(contentsOf: url)
+            }
+        }.first
+        guard let image else { return (nil, text) }
+        Self.iconCache[cacheKey] = image
         return (image, text)
     }
 }

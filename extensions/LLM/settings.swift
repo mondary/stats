@@ -33,7 +33,7 @@ internal class LLMSettings: NSStackView, Settings_v {
                 action: #selector(toggleGLM),
                 state: Store.shared.bool(key: "\(self.title)_showProvider_glm", defaultValue: true)
             )),
-            PreferencesRow("Show logos", component: switchView(
+            PreferencesRow("Show icons", component: switchView(
                 action: #selector(toggleLogos),
                 state: Store.shared.bool(key: "\(self.title)_showLogos", defaultValue: true)
             )),

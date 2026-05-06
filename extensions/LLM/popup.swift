@@ -7,9 +7,11 @@ internal class LLMPopup: PopupWrapper {
     init() {
         super.init(.llm, frame: NSRect(x: 0, y: 0, width: Constants.Popup.width, height: 120))
         self.orientation = .vertical
+        self.alignment = .width
         self.spacing = Constants.Popup.spacing
 
         self.table.orientation = .vertical
+        self.table.alignment = .width
         self.table.spacing = 6
         self.table.edgeInsets = NSEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
         self.addArrangedSubview(self.table)
@@ -61,10 +63,12 @@ internal class LLMPopup: PopupWrapper {
     private func gauge(_ title: String, percent: Double) -> NSView {
         let container = NSStackView()
         container.orientation = .vertical
+        container.alignment = .width
         container.spacing = 4
 
         let header = NSStackView()
         header.orientation = .horizontal
+        header.distribution = .fill
         let l = TextView(frame: .zero)
         l.stringValue = title
         l.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
@@ -76,13 +80,17 @@ internal class LLMPopup: PopupWrapper {
         header.addArrangedSubview(NSView())
         header.addArrangedSubview(r)
 
-        let bar = NSProgressIndicator(frame: NSRect(x: 0, y: 0, width: 220, height: 8))
+        let bar = NSProgressIndicator(frame: .zero)
+        bar.translatesAutoresizingMaskIntoConstraints = false
         bar.style = .bar
         bar.isIndeterminate = false
         bar.minValue = 0
         bar.maxValue = 100
         bar.doubleValue = percent
         bar.controlSize = .small
+        bar.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        bar.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        bar.heightAnchor.constraint(equalToConstant: 8).isActive = true
 
         container.addArrangedSubview(header)
         container.addArrangedSubview(bar)
@@ -92,15 +100,25 @@ internal class LLMPopup: PopupWrapper {
     private func providerGauge(_ usage: LLMUsage, showLogos: Bool) -> NSView {
         let container = NSStackView()
         container.orientation = .vertical
+        container.alignment = .width
         container.spacing = 5
 
         let title = TextView(frame: .zero)
-        title.stringValue = usage.provider.rawValue
+        title.stringValue = showLogos ? "\(iconToken(for: usage.provider)) \(usage.provider.rawValue)" : usage.provider.rawValue
         title.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
         container.addArrangedSubview(title)
         container.addArrangedSubview(gauge("Daily", percent: usage.dailyRemainingPercent))
         container.addArrangedSubview(gauge("Weekly", percent: usage.weeklyRemainingPercent))
         return container
+    }
+
+    private func iconToken(for provider: LLMProvider) -> String {
+        switch provider {
+        case .codex: return "[[icon:codexbar-codex]]"
+        case .claude: return "[[icon:codexbar-claude]]"
+        case .gemini: return "[[icon:codexbar-gemini]]"
+        case .glm: return "[[icon:codexbar-zai]]"
+        }
     }
 
     private func gauge(_ title: String, percent: Double?) -> NSView {
