@@ -124,6 +124,8 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
                     var codex = stats[.codex] ?? LLMUsage(provider: .codex)
                     codex.dailyRemainingPercent = rates.primaryRemaining
                     codex.weeklyRemainingPercent = rates.secondaryRemaining
+                    codex.dailyResetsAt = rates.primaryResetsAt
+                    codex.weeklyResetsAt = rates.secondaryResetsAt
                     stats[.codex] = codex
                 }
             }
@@ -184,11 +186,16 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
         return (input, output, total, cost)
     }
 
-    private func extractCodexRemaining(from obj: [String: Any]) -> (primaryRemaining: Double, secondaryRemaining: Double)? {
+    private func extractCodexRemaining(from obj: [String: Any]) -> (
+        primaryRemaining: Double,
+        secondaryRemaining: Double,
+        primaryResetsAt: Date?,
+        secondaryResetsAt: Date?
+    )? {
         guard
             let eventType = stringAtPath(obj, ["payload", "type"]),
             eventType == "token_count",
-            let rate = dictAtPath(obj, ["payload", "rate_limits"]),
+            let rate = dictAtPath(obj, ["rate_limits"]) ?? dictAtPath(obj, ["payload", "rate_limits"]),
             let primary = rate["primary"] as? [String: Any],
             let secondary = rate["secondary"] as? [String: Any]
         else { return nil }
@@ -198,7 +205,9 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
 
         return (
             primaryRemaining: max(0, min(100, 100 - primaryUsed)),
-            secondaryRemaining: max(0, min(100, 100 - secondaryUsed))
+            secondaryRemaining: max(0, min(100, 100 - secondaryUsed)),
+            primaryResetsAt: resetsAtDate(from: primary),
+            secondaryResetsAt: resetsAtDate(from: secondary)
         )
     }
 
@@ -277,35 +286,54 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
         }
         try? stdinPipe.fileHandleForWriting.close()
 
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 5) {
-            if process.isRunning {
-                process.terminate()
+        // Read stdout incrementally; terminate as soon as we get the rateLimits response.
+        let semaphore = DispatchSemaphore(value: 0)
+        var resultTuple: (Double?, Double?, Date?, Date?)? = nil
+        var buffer = Data()
+
+        let handle = stdoutPipe.fileHandleForReading
+        handle.readabilityHandler = { [weak self] _ in
+            guard let self else { return }
+            let data = handle.availableData
+            if data.isEmpty { return }
+            buffer.append(data)
+
+            while let nl = buffer.firstIndex(of: 0x0A) {
+                let lineData = buffer.subdata(in: 0..<nl)
+                buffer.removeSubrange(0...nl)
+                guard
+                    let line = String(data: lineData, encoding: .utf8),
+                    let payload = line.data(using: .utf8),
+                    let obj = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
+                    let id = obj["id"] as? Int,
+                    id == 2,
+                    let res = obj["result"] as? [String: Any],
+                    let rateLimits = res["rateLimits"] as? [String: Any]
+                else { continue }
+
+                let primary = rateLimits["primary"] as? [String: Any]
+                let secondary = rateLimits["secondary"] as? [String: Any]
+                resultTuple = (
+                    self.remainingPercent(from: primary),
+                    self.remainingPercent(from: secondary),
+                    self.resetsAtDate(from: primary),
+                    self.resetsAtDate(from: secondary)
+                )
+                semaphore.signal()
+                return
             }
         }
-        let output = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard let text = String(data: output, encoding: .utf8) else { return nil }
 
-        for line in text.split(separator: "\n").reversed() {
-            guard
-                let data = String(line).data(using: .utf8),
-                let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                let id = obj["id"] as? Int,
-                id == 2,
-                let result = obj["result"] as? [String: Any],
-                let rateLimits = result["rateLimits"] as? [String: Any]
-            else { continue }
-
-            let primary = rateLimits["primary"] as? [String: Any]
-            let secondary = rateLimits["secondary"] as? [String: Any]
-            return (
-                primaryRemaining: remainingPercent(from: primary),
-                secondaryRemaining: remainingPercent(from: secondary),
-                primaryResetsAt: resetsAtDate(from: primary),
-                secondaryResetsAt: resetsAtDate(from: secondary)
-            )
+        _ = semaphore.wait(timeout: .now() + 10)
+        handle.readabilityHandler = nil
+        if process.isRunning {
+            process.terminate()
         }
+        process.waitUntilExit()
 
+        if let t = resultTuple {
+            return (primaryRemaining: t.0, secondaryRemaining: t.1, primaryResetsAt: t.2, secondaryResetsAt: t.3)
+        }
         return nil
     }
 
@@ -319,6 +347,12 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
             return Date(timeIntervalSince1970: seconds)
         }
         if let seconds = double(window?["resetAt"]) {
+            return Date(timeIntervalSince1970: seconds)
+        }
+        if let seconds = double(window?["resets_at"]) {
+            return Date(timeIntervalSince1970: seconds)
+        }
+        if let seconds = double(window?["reset_at"]) {
             return Date(timeIntervalSince1970: seconds)
         }
         return nil

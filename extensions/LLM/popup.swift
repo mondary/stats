@@ -119,11 +119,7 @@ internal class LLMPopup: PopupWrapper {
         l.lineBreakMode = .byTruncatingTail
         l.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        var right = String(format: "%.0f%% left", percent)
-        if let resetsAt, let rel = resetRelativeText(resetsAt) {
-            right += " · \(rel)"
-        }
-        let r = NSTextField(labelWithString: right)
+        let r = NSTextField(labelWithString: String(format: "%.0f%% left", percent))
         r.alignment = .right
         r.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
         r.lineBreakMode = .byClipping
@@ -157,6 +153,16 @@ internal class LLMPopup: PopupWrapper {
         container.addArrangedSubview(header)
         container.addArrangedSubview(barContainer)
 
+        if let resetsAt, let rel = resetRelativeText(resetsAt) {
+            let note = NSTextField(labelWithString: rel)
+            note.font = NSFont.systemFont(ofSize: 10, weight: .regular)
+            note.textColor = .secondaryLabelColor
+            note.lineBreakMode = .byTruncatingTail
+            note.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            container.addArrangedSubview(note)
+            note.widthAnchor.constraint(equalTo: container.widthAnchor).isActive = true
+        }
+
         // Ensure arranged subviews span full width (otherwise NSStackView may size them to intrinsic width).
         header.widthAnchor.constraint(equalTo: container.widthAnchor).isActive = true
         barContainer.widthAnchor.constraint(equalTo: container.widthAnchor).isActive = true
@@ -164,29 +170,18 @@ internal class LLMPopup: PopupWrapper {
     }
 
     private func providerGauge(_ usage: LLMUsage, showLogos: Bool) -> NSView {
-        let container = NSView(frame: .zero)
-        container.translatesAutoresizingMaskIntoConstraints = false
-        container.widthAnchor.constraint(equalToConstant: Constants.Popup.width - 16).isActive = true
-
         let stack = NSStackView()
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.orientation = .vertical
         stack.alignment = .width
         stack.distribution = .fill
         stack.spacing = 5
-
-        container.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            stack.topAnchor.constraint(equalTo: container.topAnchor),
-            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor)
-        ])
+        stack.widthAnchor.constraint(equalToConstant: Constants.Popup.width - 16).isActive = true
 
         stack.addArrangedSubview(providerHeader(usage, showLogos: showLogos))
         stack.addArrangedSubview(gauge("Daily", percent: usage.dailyRemainingPercent, resetsAt: usage.dailyResetsAt))
         stack.addArrangedSubview(gauge("Weekly", percent: usage.weeklyRemainingPercent, resetsAt: usage.weeklyResetsAt))
-        return container
+        return stack
     }
 
     private func iconToken(for provider: LLMProvider) -> String {

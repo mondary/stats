@@ -62,7 +62,7 @@ public class LLM: Module {
     private var usageReader: LLMUsageReader? = nil
     private let title: String = ModuleType.llm.stringValue
     private var lastSummary: LLMUsageSummary? = nil
-    private var lastRemainingByProvider: [LLMProvider: (daily: Double?, weekly: Double?)] = [:]
+    private var lastRemainingByProvider: [LLMProvider: (daily: Double?, weekly: Double?, dailyReset: Date?, weeklyReset: Date?)] = [:]
 
     public init() {
         super.init(moduleType: .llm, popup: self.popupView, settings: self.settingsView)
@@ -227,9 +227,13 @@ public class LLM: Module {
             let cached = self.lastRemainingByProvider[usage.provider]
             copy.dailyRemainingPercent = usage.dailyRemainingPercent ?? cached?.daily
             copy.weeklyRemainingPercent = usage.weeklyRemainingPercent ?? cached?.weekly
+            copy.dailyResetsAt = usage.dailyResetsAt ?? cached?.dailyReset
+            copy.weeklyResetsAt = usage.weeklyResetsAt ?? cached?.weeklyReset
             self.lastRemainingByProvider[usage.provider] = (
                 daily: copy.dailyRemainingPercent,
-                weekly: copy.weeklyRemainingPercent
+                weekly: copy.weeklyRemainingPercent,
+                dailyReset: copy.dailyResetsAt,
+                weeklyReset: copy.weeklyResetsAt
             )
             return copy
         }
