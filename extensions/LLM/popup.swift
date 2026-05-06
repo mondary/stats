@@ -4,6 +4,14 @@ import Kit
 internal class LLMPopup: PopupWrapper {
     private let table: NSStackView = NSStackView()
     private let iconSize: CGFloat = 16
+    private let relativeFormatter: DateComponentsFormatter = {
+        let f = DateComponentsFormatter()
+        f.unitsStyle = .abbreviated
+        f.allowedUnits = [.day, .hour, .minute]
+        f.maximumUnitCount = 2
+        f.zeroFormattingBehavior = [.dropAll]
+        return f
+    }()
 
     init() {
         super.init(.llm, frame: NSRect(x: 0, y: 0, width: Constants.Popup.width, height: 120))
@@ -94,7 +102,7 @@ internal class LLMPopup: PopupWrapper {
         return row
     }
 
-    private func gauge(_ title: String, percent: Double) -> NSView {
+    private func gauge(_ title: String, percent: Double, resetsAt: Date?) -> NSView {
         let container = NSStackView()
         container.orientation = .vertical
         container.alignment = .width
@@ -111,7 +119,11 @@ internal class LLMPopup: PopupWrapper {
         l.lineBreakMode = .byTruncatingTail
         l.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        let r = NSTextField(labelWithString: String(format: "%.0f%% left", percent))
+        var right = String(format: "%.0f%% left", percent)
+        if let resetsAt, let rel = resetRelativeText(resetsAt) {
+            right += " · \(rel)"
+        }
+        let r = NSTextField(labelWithString: right)
         r.alignment = .right
         r.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
         r.lineBreakMode = .byClipping
@@ -172,8 +184,8 @@ internal class LLMPopup: PopupWrapper {
         ])
 
         stack.addArrangedSubview(providerHeader(usage, showLogos: showLogos))
-        stack.addArrangedSubview(gauge("Daily", percent: usage.dailyRemainingPercent))
-        stack.addArrangedSubview(gauge("Weekly", percent: usage.weeklyRemainingPercent))
+        stack.addArrangedSubview(gauge("Daily", percent: usage.dailyRemainingPercent, resetsAt: usage.dailyResetsAt))
+        stack.addArrangedSubview(gauge("Weekly", percent: usage.weeklyRemainingPercent, resetsAt: usage.weeklyResetsAt))
         return container
     }
 
@@ -210,8 +222,16 @@ internal class LLMPopup: PopupWrapper {
         return nil
     }
 
-    private func gauge(_ title: String, percent: Double?) -> NSView {
+    private func gauge(_ title: String, percent: Double?, resetsAt: Date?) -> NSView {
         guard let percent else { return row(title, "--% left") }
-        return gauge(title, percent: percent)
+        return gauge(title, percent: percent, resetsAt: resetsAt)
+    }
+
+    private func resetRelativeText(_ resetsAt: Date) -> String? {
+        let now = Date()
+        let interval = resetsAt.timeIntervalSince(now)
+        if interval <= 0 { return "resets soon" }
+        // keep it compact; we only need rough timing.
+        return relativeFormatter.string(from: interval).map { "resets in \($0)" }
     }
 }

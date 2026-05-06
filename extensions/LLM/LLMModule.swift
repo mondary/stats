@@ -17,6 +17,8 @@ public struct LLMUsage: Codable {
     public var costUSD: Double
     public var dailyRemainingPercent: Double?
     public var weeklyRemainingPercent: Double?
+    public var dailyResetsAt: Date?
+    public var weeklyResetsAt: Date?
 
     public init(
         provider: LLMProvider,
@@ -26,7 +28,9 @@ public struct LLMUsage: Codable {
         totalTokens: Int64 = 0,
         costUSD: Double = 0,
         dailyRemainingPercent: Double? = nil,
-        weeklyRemainingPercent: Double? = nil
+        weeklyRemainingPercent: Double? = nil,
+        dailyResetsAt: Date? = nil,
+        weeklyResetsAt: Date? = nil
     ) {
         self.provider = provider
         self.requests = requests
@@ -36,6 +40,8 @@ public struct LLMUsage: Codable {
         self.costUSD = costUSD
         self.dailyRemainingPercent = dailyRemainingPercent
         self.weeklyRemainingPercent = weeklyRemainingPercent
+        self.dailyResetsAt = dailyResetsAt
+        self.weeklyResetsAt = weeklyResetsAt
     }
 }
 

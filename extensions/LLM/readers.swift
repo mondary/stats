@@ -56,6 +56,8 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
             var codex = byProvider[.codex] ?? LLMUsage(provider: .codex)
             codex.dailyRemainingPercent = codexRPCQuota.primaryRemaining
             codex.weeklyRemainingPercent = codexRPCQuota.secondaryRemaining
+            codex.dailyResetsAt = codexRPCQuota.primaryResetsAt
+            codex.weeklyResetsAt = codexRPCQuota.secondaryResetsAt
             byProvider[.codex] = codex
         }
         if let geminiQuota {
@@ -228,7 +230,12 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
         return best?.url
     }
 
-    private func fetchCodexRPCQuota() -> (primaryRemaining: Double?, secondaryRemaining: Double?)? {
+    private func fetchCodexRPCQuota() -> (
+        primaryRemaining: Double?,
+        secondaryRemaining: Double?,
+        primaryResetsAt: Date?,
+        secondaryResetsAt: Date?
+    )? {
         let process = Process()
         let stdinPipe = Pipe()
         let stdoutPipe = Pipe()
@@ -293,7 +300,9 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
             let secondary = rateLimits["secondary"] as? [String: Any]
             return (
                 primaryRemaining: remainingPercent(from: primary),
-                secondaryRemaining: remainingPercent(from: secondary)
+                secondaryRemaining: remainingPercent(from: secondary),
+                primaryResetsAt: resetsAtDate(from: primary),
+                secondaryResetsAt: resetsAtDate(from: secondary)
             )
         }
 
@@ -303,6 +312,16 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
     private func remainingPercent(from window: [String: Any]?) -> Double? {
         guard let used = double(window?["usedPercent"]) else { return nil }
         return max(0, min(100, 100 - used))
+    }
+
+    private func resetsAtDate(from window: [String: Any]?) -> Date? {
+        if let seconds = double(window?["resetsAt"]) {
+            return Date(timeIntervalSince1970: seconds)
+        }
+        if let seconds = double(window?["resetAt"]) {
+            return Date(timeIntervalSince1970: seconds)
+        }
+        return nil
     }
 
     private func fetchGeminiQuota() -> (primaryRemaining: Double?, secondaryRemaining: Double?)? {
