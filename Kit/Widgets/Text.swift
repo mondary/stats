@@ -126,12 +126,14 @@ public class TextWidget: WidgetWrapper {
         let text = String(raw[end.upperBound...]).trimmingCharacters(in: .whitespaces)
         guard !token.isEmpty else { return (nil, text) }
 
-        let prefersLightIcon = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua
-        let cacheKey = "\(token)|\(prefersLightIcon ? "lightIcon" : "defaultIcon")"
+        // In Dark Mode (including vibrantDark menu bar), prefer the white `*-dark` variant.
+        let appearance = self.effectiveAppearance
+        let isDarkMode = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua || appearance.name == .vibrantDark
+        let cacheKey = "\(token)|\(isDarkMode ? "darkMode" : "lightMode")"
         if let cached = Self.iconCache[cacheKey] {
             return (cached, text)
         }
-        let names: [String] = prefersLightIcon ? ["\(token)-dark", token] : [token, "\(token)-dark"]
+        let names: [String] = isDarkMode ? ["\(token)-dark", token] : [token, "\(token)-dark"]
         let exts: [String] = ["png", "svg"]
         let image: NSImage? = names.lazy.flatMap { name in
             exts.lazy.compactMap { ext in

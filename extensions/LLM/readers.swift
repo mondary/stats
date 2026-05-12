@@ -4,6 +4,8 @@ import Kit
 internal class LLMUsageReader: Reader<LLMUsageSummary> {
     private let fm = FileManager.default
     private let title: String = ModuleType.llm.stringValue
+    private let scanLock = NSLock()
+    private var scanInFlight: Bool = false
 
     private var customCodexPath: String {
         Store.shared.string(key: "\(self.title)_codexPath", defaultValue: "")
@@ -19,7 +21,27 @@ internal class LLMUsageReader: Reader<LLMUsageSummary> {
     }
 
     public override func read() {
-        self.callback(scan())
+        // Prevent overlapping scans. Default reader interval can be 1s, but scanning
+        // logs + quota APIs is relatively expensive and can backlog.
+        scanLock.lock()
+        if scanInFlight {
+            scanLock.unlock()
+            return
+        }
+        scanInFlight = true
+        scanLock.unlock()
+
+        let value = scan()
+        self.callback(value)
+
+        scanLock.lock()
+        scanInFlight = false
+        scanLock.unlock()
+    }
+
+    override func setup() {
+        // LLM scan is expensive; avoid the global 1s default.
+        self.defaultInterval = 30
     }
 
     private func scan() -> LLMUsageSummary {

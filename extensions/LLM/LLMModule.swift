@@ -69,8 +69,11 @@ public class LLM: Module {
         guard self.available else { return }
 
         // Default to stack widget for LLM so 5h/Weekly can render on two rows.
-        if !Store.shared.exist(key: "\(self.config.name)_widget") {
-            Store.shared.set(key: "\(self.config.name)_widget", value: widget_t.stack.rawValue)
+        let widgetKey = "\(self.config.name)_widget"
+        let rawWidget = Store.shared.string(key: widgetKey, defaultValue: "")
+        let isValidWidget = widget_t(rawValue: rawWidget) != nil
+        if rawWidget.isEmpty || !isValidWidget {
+            Store.shared.set(key: widgetKey, value: widget_t.stack.rawValue)
         }
         // Right-align + monospaced digits so percentages line up vertically.
         Store.shared.set(key: "\(self.config.name)_\(widget_t.stack.rawValue)_mode", value: "twoRows")
